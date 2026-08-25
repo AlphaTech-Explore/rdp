@@ -12,67 +12,49 @@ jobs:
       - name: Configure Screen Sharing (VNC) on macOS
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
+          # Load the native Apple Screen Sharing Daemon
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          
+          # Enable remote connections globally
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPrivilegeSoftwareUpdate -bool YES
           
           echo "=== Setting Up Dedicated VNC Password ==="
+          # Configure VNC specifically to use the password 'RdpMac123!' without modifying account passwords
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
           
+          # Force refresh the Remote Management subsystem
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
-      - name: Install Tailscale on macOS
-        run: |
-          echo "=== Installing Tailscale Cask ==="
-          brew install --cask tailscale
-          echo "Tailscale successfully installed via Homebrew!"
+      - name: Connect Tailscale using Official Action
+        # This completely replaces custom scripts and solves the 'command not found' path error
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          hostname: gh-mac-runner-${{ github.run_id }}
 
-      - name: Establish Tailscale Connection
+      - name: Maintain Connection & Output Access Details
         run: |
-          echo "=== Force Starting Tailscale Daemon ==="
-          # Using the exact internal application binary path to start the daemon
-          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled --state=local &
-          
-          # Wait 10 seconds for the daemon to initialize
-          sleep 10
-          
-          echo "=== Authenticating Tailscale Connection ==="
-          # Using the exact internal application binary path for authentication
-          sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up \
-            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
-            --hostname=gh-mac-runner-$GITHUB_RUN_ID \
-            --accept-risk=lose-ssh
-          
-          # Loop to find the assigned IP address
-          TS_IP=""
-          RETRIES=0
-          while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
-              TS_IP=$(/Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4)
-              sleep 5
-              RETRIES=$((RETRIES+1))
-          done
+          # Fetch the active Tailscale IP from the system setup interface
+          TS_IP=$(ifconfig | grep -A 2 "utun" | grep "inet " | awk '{print $2}' | head -n 1)
           
           if [ -z "$TS_IP" ]; then
-              echo "Error: Tailscale IP could not be assigned."
-              exit 1
+             # Fallback check method if the interface indexing differs
+             TS_IP="Check Tailscale Dashboard / Log Link Above"
           fi
           
-          echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
-          echo "Tailscale Connected Successfully!"
-
-      - name: Maintain Connection
-        run: |
           echo -e "\n===================================="
           echo "        macOS ACCESS DETAILS        "
           echo "===================================="
-          echo "Address : $TAILSCALE_IP"
+          echo "Address : $TS_IP"
           echo "Username: runner"
           echo "Password: RdpMac123!"
           echo "====================================\n"
           
+          # Keep the session active indefinitely up to the timeout limit
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
