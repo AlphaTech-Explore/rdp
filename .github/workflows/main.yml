@@ -32,22 +32,24 @@ jobs:
 
       - name: Establish Tailscale Connection
         run: |
-          echo "=== Starting Tailscale Background Daemon ==="
-          # macOS-இல் டெயில்ஸ்கேல் பின்னணி சேவையை (Daemon) கட்டாயமாகத் துவக்குகிறோம்
-          sudo launchctl load -w /Library/LaunchDaemons/com.tailscale.tailscaled.plist || true
-          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled > /dev/null 2>&1 &
+          echo "=== Force Starting Tailscale Daemon ==="
+          # System service தோல்வியடைந்ததால், நேரடியாக பைனரியை பின்னணியில் இயக்குகிறோம்
+          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled --state=local &
           
-          # Daemon முழுமையாகத் துவங்க 5 வினாடிகள் காத்திருக்கிறோம்
-          sleep 5
+          # டீமான் முழுமையாகத் துவங்க 8 வினாடிகள் காத்திருக்கிறோம்
+          sleep 8
           
           echo "=== Authenticating Tailscale Connection ==="
-          # உங்களது பாதுகாப்பான கணக்குடன் இணைக்க
-          sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-mac-runner-$GITHUB_RUN_ID
+          # authkey இல்லை என்றாலும் உங்களுக்கு லாக்-இன் செய்ய URL லிங்க் டெர்மினலில் காட்டும்
+          sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
+            --hostname=gh-mac-runner-$GITHUB_RUN_ID \
+            --accept-risk=lose-ssh
           
           # IP முகவரியை கண்டறியும் லூப்
           TS_IP=""
           RETRIES=0
-          while [ -z "$TS_IP" ] && [ $RETRIES -lt 10 ]; do
+          while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
               TS_IP=$(/Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4)
               sleep 5
               RETRIES=$((RETRIES+1))
