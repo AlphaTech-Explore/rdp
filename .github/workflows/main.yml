@@ -24,47 +24,34 @@ jobs:
             -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
-      - name: Download and Extract Tailscale
+      - name: Install Tailscale CLI via Homebrew
         run: |
-          echo "=== Downloading Official Tailscale macOS Zip ==="
-          # Downloading the verified stable universal zip package directly from Tailscale CDN
-          curl -L "https://tailscale.com" -o tailscale.zip
-          
-          echo "=== Unzipping Binaries ==="
-          unzip -q tailscale.zip
-          
-          # Move inside the extracted folder dynamically to copy clean standalone binaries
-          cd tailscale_*
-          cp tailscale ../
-          cp tailscaled ../
-          cd ..
-          
-          # Clean up temporary zip and folder resources
-          rm -rf tailscale.zip tailscale_*
-          
-          echo "Successfully extracted local binaries!"
+          echo "=== Installing Official Tailscale CLI ==="
+          # Installing the standard command line binary instead of a GUI cask app
+          brew install tailscale
+          echo "Tailscale binary successfully added to system environment!"
 
       - name: Establish Tailscale Connection
         run: |
-          echo "=== Force Starting Local Tailscale Daemon ==="
-          # Execute the standalone daemon binary locally in the background safely
-          sudo ./tailscaled --state=local.state > /dev/null 2>&1 &
+          echo "=== Force Starting Tailscale Daemon ==="
+          # Start the background engine using homebrew's verified path
+          sudo tailscaled --state=local.state &
           
           # Wait 10 seconds for the system engine to initialize safely
           sleep 10
           
           echo "=== Authenticating Tailscale Connection ==="
-          # Triggering the dynamic interactive link generation safely into the log window
-          sudo ./tailscale up \
+          # Bypassing explicit paths to generate the interactive link in your logs
+          sudo tailscale up \
             --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
             --hostname=gh-mac-runner-$GITHUB_RUN_ID \
             --accept-risk=lose-ssh
           
-          # Loop layout to monitor the active network stack interface assignment
+          # Loop layout to monitor the active network assignment
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
-              TS_IP=$(./tailscale ip -4)
+              TS_IP=$(tailscale ip -4)
               sleep 5
               RETRIES=$((RETRIES+1))
           done
