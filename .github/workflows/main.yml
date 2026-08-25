@@ -12,49 +12,79 @@ jobs:
       - name: Configure Screen Sharing (VNC) on macOS
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
-          # Load the native Apple Screen Sharing Daemon
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
-          
-          # Enable remote connections globally
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPrivilegeSoftwareUpdate -bool YES
           
           echo "=== Setting Up Dedicated VNC Password ==="
-          # Configure VNC specifically to use the password 'RdpMac123!' without modifying account passwords
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
           
-          # Force refresh the Remote Management subsystem
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
-      - name: Connect Tailscale using Official Action
-        # This completely replaces custom scripts and solves the 'command not found' path error
-        uses: tailscale/github-action@v2
-        with:
-          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          hostname: gh-mac-runner-${{ github.run_id }}
+      - name: Download and Install Tailscale Standalone CLI
+        run: |
+          echo "=== Downloading Tailscale macOS Binary ==="
+          # ஹோம்ப்ரூ பாத் சிக்கல்களைத் தவிர்க்க நேரடியாக அதிகாரப்பூர்வ ஸ்டாண்டலோன் கம்பைல்டு பைனரியை டவுன்லோட் செய்கிறோம்
+          curl -L "https://tailscale.com" -o tailscale.tgz
+          
+          echo "=== Extracting and Installing Binaries ==="
+          tar -xzf tailscale.tgz
+          cd tailscale_*
+          
+          # உலகளாவிய சிஸ்டம் பாத்திற்கு பைனரிகளை நகர்த்துகிறோம்
+          sudo mkdir -p /usr/local/bin
+          sudo cp tailscale /usr/local/bin/
+          sudo cp tailscaled /usr/local/bin/
+          
+          echo "Tailscale CLI binaries successfully placed in /usr/local/bin/"
+
+      - name: Establish Tailscale Connection
+        run: |
+          echo "=== Force Starting Tailscale Daemon ==="
+          # ஸ்டேட் ஃபைலை டிபைன் செய்து டீமானை நேரடியாக பின்னணியில் இயக்குகிறோம்
+          sudo /usr/local/bin/tailscaled --state=local &
+          
+          # டீமான் முழுமையாகத் துவங்க 10 வினாடிகள் காத்திருக்கிறோம்
+          sleep 10
+          
+          echo "=== Authenticating Tailscale Connection ==="
+          # இதிலுள்ள லாகின் லிங்கை கிளிக் செய்து நீங்கள் கனெக்ட் செய்யலாம்
+          sudo /usr/local/bin/tailscale up \
+            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
+            --hostname=gh-mac-runner-$GITHUB_RUN_ID \
+            --accept-risk=lose-ssh
+          
+          # IP முகவரியை கண்டறியும் லூப்
+          TS_IP=""
+          RETRIES=0
+          while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
+              TS_IP=$(/usr/local/bin/tailscale ip -4)
+              sleep 5
+              RETRIES=$((RETRIES+1))
+          done
+          
+          if [ -z "$TS_IP" ]; then
+              echo "Error: Tailscale IP could not be assigned."
+              exit 1
+          fi
+          
+          echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
+          echo "Tailscale Connected Successfully!"
 
       - name: Maintain Connection & Output Access Details
         run: |
-          # Fetch the active Tailscale IP from the system setup interface
-          TS_IP=$(ifconfig | grep -A 2 "utun" | grep "inet " | awk '{print $2}' | head -n 1)
-          
-          if [ -z "$TS_IP" ]; then
-             # Fallback check method if the interface indexing differs
-             TS_IP="Check Tailscale Dashboard / Log Link Above"
-          fi
-          
           echo -e "\n===================================="
           echo "        macOS ACCESS DETAILS        "
           echo "===================================="
-          echo "Address : $TS_IP"
+          echo "Address : $TAILSCALE_IP"
           echo "Username: runner"
           echo "Password: RdpMac123!"
           echo "====================================\n"
           
-          # Keep the session active indefinitely up to the timeout limit
+          # கணினி அணைந்துவிடாமல் இருக்க Keep-Alive லூப்
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
