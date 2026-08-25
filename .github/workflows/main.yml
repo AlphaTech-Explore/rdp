@@ -5,8 +5,7 @@ on:
 
 jobs:
   secure-rdp:
-    # Change from windows-latest to your larger runner group label
-    runs-on: windows-heavy-duty 
+    runs-on: windows-16-core
     timeout-minutes: 3600
 
     steps:
