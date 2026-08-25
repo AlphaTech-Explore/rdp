@@ -12,37 +12,37 @@ jobs:
       - name: Configure Screen Sharing (VNC) on macOS
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
+          # macOS-இல் ஸ்கிரீன் ஷேரிங் சேவையை பின்னணியில் துவக்க
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          
+          # அனைத்து பயனர்களும் VNC வழியாக இணைவதை அனுமதிக்க
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPrivilegeSoftwareUpdate -bool YES
           
           echo "=== Setting Up Dedicated VNC Password ==="
+          # VNC இணைப்பிற்கு மட்டும் 'RdpMac123!' என்ற பாஸ்வேர்டை பிரத்தியேகமாக செட் செய்கிறோம்
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
           
+          # ரிமோட் மேனேஜ்மென்ட் அமைப்புகளை முழுமையாக ரீஸ்டார்ட் செய்ய
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
       - name: Install Tailscale on macOS
         run: |
-          echo "=== Downloading Tailscale Stable Package ==="
-          # Valid direct official download link-ai payanpaduthugirom
-          curl -L "https://tailscale.com" -o tailscale.pkg
-          
-          echo "=== Installing Tailscale Package ==="
-          # Local package file path-ai strict-aga specify seidhu install seigiron
-          sudo installer -pkg ./tailscale.pkg -target /
-          
-          # Clean up temporary installer
-          rm ./tailscale.pkg
-          echo "Tailscale successfully installed!"
+          echo "=== Updating Homebrew and Installing Tailscale ==="
+          # .pkg path பிழைகளைத் தவிர்க்க, macOS இன் அதிகாரப்பூர்வ 'brew' வழிமுறையைப் பயன்படுத்துகிறோம்
+          brew install --cask tailscale
+          echo "Tailscale successfully installed via Homebrew!"
 
       - name: Establish Tailscale Connection
         run: |
           echo "=== Starting Tailscale Service ==="
+          # டெயில்ஸ்கேல் அப்ளிகேஷனை பின்னணியில் இயக்கி இணைக்க
           sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-mac-runner-$GITHUB_RUN_ID
           
+          # டெயில்ஸ்கேல் வழங்கும் பிரத்யேக IP முகவரியை கண்டறியும் லூப்
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 10 ]; do
@@ -69,6 +69,7 @@ jobs:
           echo "Password: RdpMac123!"
           echo "====================================\n"
           
+          # கணினி அணைந்துவிடாமல் இருக்க Keep-Alive லூப்
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
