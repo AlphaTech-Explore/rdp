@@ -24,44 +24,27 @@ jobs:
             -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
-      - name: Download and Install Tailscale Standalone CLI
-        run: |
-          echo "=== Downloading Tailscale macOS Binary ==="
-          # ஹோம்ப்ரூ பாத் சிக்கல்களைத் தவிர்க்க நேரடியாக அதிகாரப்பூர்வ ஸ்டாண்டலோன் கம்பைல்டு பைனரியை டவுன்லோட் செய்கிறோம்
-          curl -L "https://tailscale.com" -o tailscale.tgz
-          
-          echo "=== Extracting and Installing Binaries ==="
-          tar -xzf tailscale.tgz
-          cd tailscale_*
-          
-          # உலகளாவிய சிஸ்டம் பாத்திற்கு பைனரிகளை நகர்த்துகிறோம்
-          sudo mkdir -p /usr/local/bin
-          sudo cp tailscale /usr/local/bin/
-          sudo cp tailscaled /usr/local/bin/
-          
-          echo "Tailscale CLI binaries successfully placed in /usr/local/bin/"
-
       - name: Establish Tailscale Connection
         run: |
-          echo "=== Force Starting Tailscale Daemon ==="
-          # ஸ்டேட் ஃபைலை டிபைன் செய்து டீமானை நேரடியாக பின்னணியில் இயக்குகிறோம்
-          sudo /usr/local/bin/tailscaled --state=local &
+          echo "=== Force Starting Native Tailscale Daemon ==="
+          # Executing the standalone absolute executable path directly from the macOS App system bundle
+          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled --state=local &
           
-          # டீமான் முழுமையாகத் துவங்க 10 வினாடிகள் காத்திருக்கிறோம்
+          # Wait 10 seconds for the system daemon engine to initialize safely
           sleep 10
           
           echo "=== Authenticating Tailscale Connection ==="
-          # இதிலுள்ள லாகின் லிங்கை கிளிக் செய்து நீங்கள் கனெக்ட் செய்யலாம்
-          sudo /usr/local/bin/tailscale up \
+          # Triggering the interactive link output safely into the log window
+          sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up \
             --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
             --hostname=gh-mac-runner-$GITHUB_RUN_ID \
             --accept-risk=lose-ssh
           
-          # IP முகவரியை கண்டறியும் லூப்
+          # Loop layout to monitor the active network stack interface assignment
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
-              TS_IP=$(/usr/local/bin/tailscale ip -4)
+              TS_IP=$(/Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4)
               sleep 5
               RETRIES=$((RETRIES+1))
           done
@@ -84,7 +67,6 @@ jobs:
           echo "Password: RdpMac123!"
           echo "====================================\n"
           
-          # கணினி அணைந்துவிடாமல் இருக்க Keep-Alive லூப்
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
