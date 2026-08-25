@@ -5,7 +5,7 @@ on:
 
 jobs:
   secure-rdp:
-    runs-on: windows-16-core
+    runs-on: windows-gpu-runner
     timeout-minutes: 3600
 
     steps:
