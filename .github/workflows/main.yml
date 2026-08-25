@@ -5,43 +5,29 @@ on:
 
 jobs:
   secure-vnc:
-    # GitHub free tier-il macOS run aavadharkana label
     runs-on: macos-latest
-    # GitHub free tier-il individual jobs-ukku maximum 6 mani neram (360 nimidangal) dhaan limit
     timeout-minutes: 360
 
     steps:
       - name: Configure Screen Sharing (VNC) on macOS
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
-          # macOS-il ulla Remote Desktop / Screen Sharing-ai activate seiya
+          # macOS-il Screen Sharing service-ai thodanga
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
           
           # VNC connections-ai strictly enable seiya
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
-          echo "Screen Sharing successfully configured!"
-
-      - name: Create macOS User with Secure Password
-        run: |
-          echo "=== Generating Secure Random Password ==="
-          # 16-character secure random password-ai generate seiya
-          PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
           
-          # Adutha steps-il use seiyum padi GitHub environment-il save seiya
-          echo "VNC_PASS=$PASSWORD" >> $GITHUB_ENV
+          # Default-aga ulla 'runner' user-ukku password-ai 'RdpMac123!' endru maatrunggal
+          echo "runner:RdpMac123!" | sudo chpasswd
           
-          echo "=== Registering macOS User ==="
-          # dscl interactive freeze-ai thavirka 'sysadminctl' moolam admin user-ai udanae create seigiron
-          sudo sysadminctl -addUser macuser -fullName "Mac User" -password "$PASSWORD" -admin
-          
-          # VNC access global settings password-ai update seiya
-          sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPassword -string "$PASSWORD"
-          echo "User 'macuser' successfully created with Admin privileges!"
+          # VNC access global settings password-aiயும் update seiya
+          sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPassword -string "RdpMac123!"
+          echo "Screen Sharing successfully configured for default 'runner' account!"
 
       - name: Install Tailscale on macOS
         run: |
           echo "=== Downloading and Installing Tailscale Package ==="
-          # macOS standalone stable msi/pkg download seithu install seiya
           curl -L "https://tailscale.com" -o tailscale.pkg
           sudo installer -pkg tailscale.pkg -target /
           rm tailscale.pkg
@@ -50,10 +36,8 @@ jobs:
       - name: Establish Tailscale Connection
         run: |
           echo "=== Starting Tailscale Service ==="
-          # Tailscale service-ai authkey moolam ungal account-udan inaikkavum
           sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-mac-runner-$GITHUB_RUN_ID
           
-          # Tailscale assigned private IP-ai fetch seiya oru loop
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 10 ]; do
@@ -76,11 +60,10 @@ jobs:
           echo "        macOS ACCESS DETAILS        "
           echo "===================================="
           echo "Address : $TAILSCALE_IP"
-          echo "Username: macuser"
-          echo "Password: $VNC_PASS"
+          echo "Username: runner"
+          echo "Password: RdpMac123!"
           echo "====================================\n"
           
-          # Connection cut aagadha padi runner-ai thodarchiyaga active-aga vaika
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
