@@ -18,8 +18,9 @@ jobs:
           # VNC connections-ai strictly enable seiya
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           
-          # Default-aga ulla 'runner' user-ukku password-ai 'RdpMac123!' endru maatrunggal
-          echo "runner:RdpMac123!" | sudo chpasswd
+          echo "=== Changing Password for default 'runner' ==="
+          # macOS-il password-ai terminal prompt illamal maatra indha safe dscl command mukkiyam
+          sudo dscl . -passwd /Users/runner "RdpMac123!"
           
           # VNC access global settings password-aiயும் update seiya
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPassword -string "RdpMac123!"
