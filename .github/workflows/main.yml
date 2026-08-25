@@ -33,15 +33,15 @@ jobs:
       - name: Establish Tailscale Connection
         run: |
           echo "=== Force Starting Tailscale Daemon ==="
-          # System service தோல்வியடைந்ததால், நேரடியாக பைனரியை பின்னணியில் இயக்குகிறோம்
-          sudo /Applications/Tailscale.app/Contents/MacOS/tailscaled --state=local &
+          # Symlink path moolam global-aga irukkum tailscaled binary-ai background-il force start seigiron
+          sudo tailscaled --state=local &
           
-          # டீமான் முழுமையாகத் துவங்க 8 வினாடிகள் காத்திருக்கிறோம்
-          sleep 8
+          # Daemon thodanga 10 வினாடிகள் காத்திருக்கிறோம்
+          sleep 10
           
           echo "=== Authenticating Tailscale Connection ==="
-          # authkey இல்லை என்றாலும் உங்களுக்கு லாக்-இன் செய்ய URL லிங்க் டெர்மினலில் காட்டும்
-          sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up \
+          # Global tailscale command moolam authentication thodangugiradhu
+          sudo tailscale up \
             --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
             --hostname=gh-mac-runner-$GITHUB_RUN_ID \
             --accept-risk=lose-ssh
@@ -50,7 +50,7 @@ jobs:
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
-              TS_IP=$(/Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4)
+              TS_IP=$(tailscale ip -4)
               sleep 5
               RETRIES=$((RETRIES+1))
           done
