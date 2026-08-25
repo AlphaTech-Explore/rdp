@@ -12,40 +12,37 @@ jobs:
       - name: Configure Screen Sharing (VNC) on macOS
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
-          # macOS-இல் ஸ்கிரீன் ஷேரிங் சேவையை பின்னணியில் துவக்க
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
-          
-          # அனைத்து பயனர்களும் VNC வழியாக இணைவதை அனுமதிக்க
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPrivilegeSoftwareUpdate -bool YES
           
           echo "=== Setting Up Dedicated VNC Password ==="
-          # கணினியின் பாஸ்வேர்டை மாற்றாமல் VNC இணைப்பிற்கு மட்டும் 'RdpMac123!' என்ற பாஸ்வேர்டை பிரத்தியேகமாக செட் செய்கிறோம்
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
           
-          # ரிமோட் மேனேஜ்மென்ட் அமைப்புகளை முழுமையாக ரீஸ்டார்ட் செய்ய
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -restart -agent -privs -all
-            
           echo "Screen Sharing successfully configured for remote access!"
 
       - name: Install Tailscale on macOS
         run: |
-          echo "=== Downloading and Installing Tailscale Package ==="
-          # டெயில்ஸ்கேல் பேக்கேஜை பதிவிறக்கம் செய்து நேரடியாக இன்ஸ்டால் செய்ய
+          echo "=== Downloading Tailscale Stable Package ==="
+          # Valid direct official download link-ai payanpaduthugirom
           curl -L "https://tailscale.com" -o tailscale.pkg
-          sudo installer -pkg tailscale.pkg -target /
-          rm tailscale.pkg
+          
+          echo "=== Installing Tailscale Package ==="
+          # Local package file path-ai strict-aga specify seidhu install seigiron
+          sudo installer -pkg ./tailscale.pkg -target /
+          
+          # Clean up temporary installer
+          rm ./tailscale.pkg
           echo "Tailscale successfully installed!"
 
       - name: Establish Tailscale Connection
         run: |
           echo "=== Starting Tailscale Service ==="
-          # டெயில்ஸ்கேல் அப்ளிகேஷனை பின்னணியில் இயக்கி, உங்களது பாதுகாப்பான கணக்குடன் இணைக்க
           sudo /Applications/Tailscale.app/Contents/MacOS/Tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-mac-runner-$GITHUB_RUN_ID
           
-          # டெயில்ஸ்கேல் வழங்கும் பிரத்யேக IP முகவரியை கண்டறியும் லூப்
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 10 ]; do
@@ -72,7 +69,6 @@ jobs:
           echo "Password: RdpMac123!"
           echo "====================================\n"
           
-          # கனெக்ஷன் கட் ஆகாமல் இருக்க 5 நிமிடத்திற்கு ஒருமுறை சிக்னல் அனுப்பும் லூப்
           while true; do
               echo "[$(date)] macOS Active - Keep-Alive loop running..."
               sleep 300
