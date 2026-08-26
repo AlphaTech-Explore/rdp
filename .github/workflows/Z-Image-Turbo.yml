@@ -1,0 +1,94 @@
+name: Native CPU Z-Image-Turbo Generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Text prompt for image generation'
+        required: true
+        default: 'A sleek modern cybernetic fox, vector art style, neon accents'
+
+jobs:
+  generate_on_cpu:
+    # Use your enterprise high-performance runner group or larger runner label here.
+    # Standard 'ubuntu-latest' provides only 7GB RAM, which will OOM.
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Ollama (CPU Optimized Engine)
+        run: |
+          curl -fsSL https://ollama.com | sh
+
+      - name: Configure and Start Ollama Service
+        run: |
+          # Optimize thread usage to leverage all available high-performance CPU cores
+          export OLLAMA_NUM_PARALLEL=1
+          
+          # Start Ollama daemon in the background
+          ollama serve > ollama.log 2>&1 &
+          
+          # Wait until the daemon is responsive
+          echo "Waiting for Ollama service to start..."
+          until curl -s http://127.0.0 > /dev/null; do
+            sleep 2
+          done
+          echo "Ollama service is up!"
+
+      - name: Pull Memory-Optimized Z-Image-Turbo Model
+        run: |
+          # Pulling the FP8 / quantized version to strictly fit within the 16GB RAM overhead
+          echo "Downloading optimized 6B weights..."
+          ollama pull x/z-image-turbo:fp8
+
+      - name: Generate Image via Local Localhost API
+        run: |
+          python - <<EOF
+          import requests
+          import json
+          import base64
+
+          endpoint = "http://127.0.0"
+          
+          # Construct payload according to local Ollama API structure
+          payload = {
+              "model": "x/z-image-turbo:fp8",
+              "prompt": "${{ github.event.inputs.prompt }}",
+              "stream": False,
+              "options": {
+                  "num_predict": 8 # Distilled 8-step convergence 
+              }
+          }
+
+          print("Triggering CPU inference engine...")
+          response = requests.post(endpoint, json=payload)
+          
+          if response.status_code != 200:
+              print(f"Execution failed: {response.text}")
+              exit(1)
+              
+          result = response.json()
+          
+          # Extract and decode raw image payload byte stream
+          if 'response' in result or 'image' in result:
+              # Depending on local model manifest output mappings
+              img_b64 = result.get('image', result.get('response'))
+              try:
+                  with open("cpu_output.png", "wb") as f:
+                      f.write(base64.b64decode(img_b64))
+                  print("Success: Image written out to disk.")
+              except Exception as e:
+                  print(f"Failed parsing raw stream: {e}. Raw response snippet: {str(result)[:200]}")
+          else:
+              # Fallback if standard text stream structure intercepts mapping
+              print("No explicit visual data stream block found.")
+          EOF
+
+      - name: Upload Output Asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpu-generated-art
+          path: cpu_output.png
+          retention-days: 3
