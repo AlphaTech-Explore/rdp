@@ -1,4 +1,4 @@
-name: macOS-Remote-Desktop
+name: MacOS RDP
 
 on:
   workflow_dispatch:
