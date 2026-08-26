@@ -57,21 +57,22 @@ jobs:
               exit 1
           }
 
-      - name: Enable IP Forwarding and Optimize Network Throughput
+      - name: Enable IP Forwarding, NAT Routing & Optimize TCP
         run: |
-          # Activating Registry IP Router for proper VPN traffic forwarding
+          # 1. IP Router-ஐ ரிஜிஸ்ட்ரில எனேபிள் பண்றோம்
           Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name "IPEnableRouter" -Value 1 -Force
           
-          # Windows TCP Window Auto-Tuning optimization for High Bandwidth
-          netsh int tcp set global autotuninglevel=normal
-          netsh int tcp set global experimental=enabled
-          
-          # Force network hardware offloading for low latency UDP/TCP streams (-Confirm:$false fix)
-          Enable-NetAdapterChecksumOffload -Name "*" -Confirm:$false
-          Enable-NetAdapterLso -Name "*" -IPv4 -Confirm:$false
+          # Remote Access Service (Routing) ஸ்டார்ட் பண்ணி NAT-ஐ ஆக்டிவேட் பண்றோம்
+          # இதுதான் VPN ஸ்பீடை அதிகப்படுத்த மிக முக்கியமானது
+          Set-Service -Name RemoteAccess -StartupType Automatic
+          Start-Service -Name RemoteAccess -ErrorAction SilentlyContinue
 
-          # Allow unrestricted outbound/inbound traffic on the host firewall
-          netsh advfirewall firewall add rule name="Allow Tailscale Routing" dir=in action=allow protocol=Any
+          # 2. Syntax பிழை இல்லாத சரியான TCP Window Auto-Tuning கமாண்ட்
+          netsh int tcp set global autotuninglevel=experimental
+
+          # 3. ஃபயர்வால் அலோவ் ரூல்ஸ்
+          netsh advfirewall firewall add rule name="Allow Tailscale Routing In" dir=in action=allow protocol=Any
+          netsh advfirewall firewall add rule name="Allow Tailscale Routing Out" dir=out action=allow protocol=Any
 
       - name: Install Tailscale
         run: |
