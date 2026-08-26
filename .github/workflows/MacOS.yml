@@ -2,6 +2,11 @@ name: MacOS RDP via TigerVNC
 
 on:
   workflow_dispatch:
+    inputs:
+      vnc_install_cmd:
+        description: 'VNC Installation Command'
+        required: true
+        default: 'brew install tiger-vnc'
 
 jobs:
   secure-vnc:
@@ -9,24 +14,38 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Install TigerVNC Server via Homebrew
+      - name: Install TigerVNC via Homebrew
         run: |
-          echo "=== Installing Third-Party TigerVNC Server ==="
-          # சரியான ஹோம்ப்ரூ ஃபார்முலா பெயர் 'tiger-vnc'
-          brew install tiger-vnc
+          echo "=== Running VNC Installation ==="
+          ${{ github.event.inputs.vnc_install_cmd }}
           
       - name: Configure and Start TigerVNC Server
         run: |
+          echo "=== Configuring Homebrew Environment Path ==="
+          # ஹோம்ப்ரூவ் கமாண்டுகள் வேலை செய்ய பாத்தை கட்டாயமாக இணைக்கிறோம்
+          if [ -d "/opt/homebrew/bin" ]; then
+              export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH"
+          fi
+          
           echo "=== Setting Up Passwordless/Custom VNC ==="
           mkdir -p ~/.vnc
-          echo "RdpMac123!" | vncpasswd -f > ~/.vnc/passwd
+          
+          # vncpasswd கமாண்ட் எங்குள்ளது என்று தேடி அதன் முழுப் பாத்தையும் பயன்படுத்துகிறோம்
+          VNC_PASS_PATH=$(which vncpasswd || echo "/opt/homebrew/bin/vncpasswd")
+          VNC_SERVER_PATH=$(which vncserver || echo "/opt/homebrew/bin/vncserver")
+          
+          echo "Using VNC Pass Path: $VNC_PASS_PATH"
+          echo "Using VNC Server Path: $VNC_SERVER_PATH"
+          
+          # பாஸ்வேர்ட் ஃபைலை உருவாக்குறோம்
+          $VNC_PASS_PATH -f <<< "RdpMac123!" > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           
-          # விர்ச்சுவல் டிஸ்ப்ளே ஓப்பன் செய்கிறோம் (Port: 5901)
-          vncserver :1 -geometry 1024x768 -depth 24 -rfbauth ~/.vnc/passwd &
+          # விர்ச்சுவல் டிஸ்ப்ளே 1024x768 ரெசல்யூஷன்ல ஓப்பன் பண்றோம் (Port: 5901)
+          $VNC_SERVER_PATH :1 -geometry 1024x768 -depth 24 -rfbauth ~/.vnc/passwd &
           
           sleep 5
-          echo "TigerVNC Server successfully started on Port 5901!"
+          echo "TigerVNC Server successfully initialized!"
 
       - name: Install Tailscale CLI via Homebrew
         run: |
