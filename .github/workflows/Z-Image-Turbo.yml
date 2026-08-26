@@ -26,11 +26,26 @@ jobs:
 
       - name: Install AI Engine Dependencies
         run: |
-          python -m pip install --upgrade pip
-          # Strict explicit mapping to CPU wheels to completely ignore heavy, volatile GPU binary overheads
-          pip install torch torchvision --index-url https://pytorch.org
-          # Install Hugging Face diffusion processing arrays 
-          pip install diffusers transformers accelerators sentencepiece
+          # 1. Clear out toxic hidden global environmental variables injected by the runner manager
+          unset PIP_INDEX_URL
+          unset PIP_EXTRA_INDEX_URL
+          unset PIP_CONFIG_FILE
+          
+          # 2. Upgrade pip cleanly using a sandboxed configuration setup
+          python -m pip install --isolated --upgrade pip
+          
+          echo "Force-fetching CPU-optimized deep learning libraries..."
+          # 3. Direct explicit installation with trusted hosts to clear proxy handshake bugs
+          python -m pip install --isolated \
+            torch torchvision \
+            --index-url https://pytorch.org \
+            --trusted-host download.pytorch.org
+            
+          echo "Installing framework wrapper arrays..."
+          python -m pip install --isolated \
+            diffusers transformers accelerators sentencepiece \
+            --index-url https://pypi.org/simple \
+            --trusted-host pypi.org
 
       - name: Run Core Image Generation Script
         run: |
@@ -73,7 +88,7 @@ jobs:
               print(f"Inference successfully compiled in {round(end_time - start_time, 2)} seconds.")
               
               # Safely parse the generated canvas file out of the image array wrapper
-              image = output.images[0]
+              image = output.images
               image.save("cpu_output.png")
               print("Success: Generated image array saved safely to disk storage profiles.")
               
