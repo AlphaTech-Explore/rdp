@@ -9,45 +9,46 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Configure Screen Sharing (VNC) on macOS
+      - name: Configure Screen Sharing & ARD Privileges
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
+          
+          # Screen Sharing மற்றும் Remote Management சர்வீஸ்களை எனேபிள் செய்கிறோம்
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          
+          # தற்போதைய 'runner' யூசருக்கு முழுமையான ரிமோட் கண்ட்ரோல் உரிமைகளை (ARD Privileges) வழங்குகிறோம்
+          # இதுதான் ஆதெண்டிகேஷன் எர்ரரை முழுமையாக சரிசெய்யும்
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -allowAccessFor -allUsers -privs -all \
+            -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
+            
+          # VNC லாகின் முறையை முழுமையாக எனேபிள் செய்கிறோம்
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
-          sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCPrivilegeSoftwareUpdate -bool YES
           
-          echo "=== Setting Up Dedicated VNC Password ==="
+          # சர்வீஸை ரீஸ்டார்ட் செய்கிறோம்
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
+            -restart -agent
           
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -restart -agent -privs -all
           echo "Screen Sharing successfully configured for remote access!"
 
       - name: Install Tailscale CLI via Homebrew
         run: |
           echo "=== Installing Official Tailscale CLI ==="
-          # Installing the standard command line binary instead of a GUI cask app
           brew install tailscale
           echo "Tailscale binary successfully added to system environment!"
 
       - name: Establish Tailscale Connection
         run: |
           echo "=== Force Starting Tailscale Daemon ==="
-          # Start the background engine using homebrew's verified path
           sudo tailscaled --state=local.state &
-          
-          # Wait 10 seconds for the system engine to initialize safely
           sleep 10
           
           echo "=== Authenticating Tailscale Connection ==="
-          # Bypassing explicit paths to generate the interactive link in your logs
           sudo tailscale up \
             --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
             --hostname=gh-mac-runner-$GITHUB_RUN_ID \
             --accept-risk=lose-ssh
           
-          # Loop layout to monitor the active network assignment
           TS_IP=""
           RETRIES=0
           while [ -z "$TS_IP" ] && [ $RETRIES -lt 12 ]; do
@@ -71,7 +72,7 @@ jobs:
           echo "===================================="
           echo "Address : $TAILSCALE_IP"
           echo "Username: runner"
-          echo "Password: RdpMac123!"
+          echo "VNC Password: RdpMac123!"
           echo "====================================\n"
           
           while true; do
