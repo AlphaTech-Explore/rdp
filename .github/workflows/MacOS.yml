@@ -1,4 +1,4 @@
-name: MacOS RDP
+name: MacOS RDP via TigerVNC
 
 on:
   workflow_dispatch:
@@ -9,33 +9,27 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Configure Screen Sharing with Standard Privileges
+      - name: Install TigerVNC Server via Homebrew
         run: |
-          echo "=== Configuring Screen Sharing Settings ==="
+          echo "=== Installing Third-Party TigerVNC Server ==="
+          # ஆப்பிள் செக்யூரிட்டியை பைபாஸ் பண்ண TigerVNC இன்ஸ்டால் செய்கிறோம்
+          brew install tigervnc-server
           
-          # Screen Sharing சர்வீஸை எனேபிள் செய்கிறோம்
-          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+      - name: Configure and Start TigerVNC Server
+        run: |
+          echo "=== Setting Up Passwordless/Custom VNC ==="
+          # VNC-க்கான டைரக்ட் பாஸ்வேர்ட்டை பேக்ரவுண்ட்ல செட் பண்றோம்
+          mkdir -p ~/.vnc
+          echo "RdpMac123!" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
           
-          # சிஸ்டம் பாஸ்வேர்ட்டை மாற்றாமல், ஆப்பிள் ஏஜென்ட் வழியாக VNC-க்கு மட்டும் பிரத்யேக பாஸ்வேர்ட் செட் செய்கிறோம்
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -allowAccessFor -specifiedUsers
-            
-          # 'runner' யூசருக்கு மட்டும் முழுமையான ரிமோட் கண்ட்ரோல் உரிமைகளை வழங்குகிறோம்
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -access -on -privs -all -users runner
-            
-          # VNC லாகின் பாஸ்வேர்ட்டை 'RdpMac123!' என்று பிக்ஸ் செய்கிறோம்
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
-            
-          # VNC லாகின் முறையை சிஸ்டத்தில் உறுதி செய்கிறோம்
-          sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
+          # விர்ச்சுவல் டிஸ்ப்ளே 1024x768 ரெசல்யூஷன்ல ஓப்பன் பண்றோம் (Port: 5901)
+          # இது ஆப்பிள் செக்யூரிட்டி லாக்ஸை முழுமையாகத் தவிர்க்கும்
+          vncserver :1 -geometry 1024x768 -depth 24 -rfbauth ~/.vnc/passwd &
           
-          # சர்வீஸை ரீஸ்டார்ட் செய்கிறோம்
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -restart -agent
-          
-          echo "Screen Sharing successfully configured for remote access!"
+          # சர்வர் ஸ்டார்ட் ஆக 5 செகண்ட்ஸ் டைம் குடுப்போம்
+          sleep 5
+          echo "TigerVNC Server successfully started on Port 5901!"
 
       - name: Install Tailscale CLI via Homebrew
         run: |
@@ -76,9 +70,9 @@ jobs:
           echo -e "\n===================================="
           echo "        macOS ACCESS DETAILS        "
           echo "===================================="
-          echo "Address : $TAILSCALE_IP"
-          echo "Username: runner"
-          echo "VNC Password: RdpMac123!"
+          echo "Address : $TAILSCALE_IP:5901"
+          echo "Username: (Leave Blank / Empty)"
+          echo "Password: RdpMac123!"
           echo "====================================\n"
           
           while true; do
