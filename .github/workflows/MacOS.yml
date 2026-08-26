@@ -9,20 +9,11 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Install Pure VNC Server Tools
+      - name: Configure Screen Sharing on macOS
         run: |
-          echo "=== Installing Python VNC Automation ==="
-          # ஹோம்ப்ரூவ் எர்ரர்களை தவிர்க்க பைத்தான் மூலமாக விர்ச்சுவல் VNC சர்வரை இன்ஸ்டால் செய்கிறோம்
-          pip3 install --upgrade pip
-          pip3 install proxy.py
-          
-      - name: Enable Screen Sharing on Localhost Port
-        run: |
-          echo "=== Enabling Localhost VNC Forwarding ==="
-          # ஆப்பிள் செக்யூரிட்டி லேயரை பைபாஸ் செய்ய லோக்கல்ஹோஸ்ட் போர்ட் 5900-ஐ ஓப்பன் செய்கிறோம்
+          echo "=== Enabling Localhost VNC Screen Sharing ==="
+          # ஆப்பிளின் செக்யூரிட்டி லேயரை பைபாஸ் செய்ய லோக்கல்ஹோஸ்ட் ஸ்கிரீன் ஷேரிங்கை ஆன் செய்கிறோம்
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
-          
-          # எந்த பாஸ்வேர்ட்டும் கேட்காமல் இருக்க விர்ச்சுவல் லாக்ஸை கிளியர் செய்கிறோம்
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           
       - name: Install Tailscale CLI via Homebrew
@@ -66,7 +57,7 @@ jobs:
           echo "===================================="
           echo "Address : $TAILSCALE_IP"
           echo "Username: runner"
-          echo "Password: (Use your GitHub Runner Default or Blank)"
+          echo "Password: (Leave Blank / Empty)"
           echo "====================================\n"
           
           while true; do
