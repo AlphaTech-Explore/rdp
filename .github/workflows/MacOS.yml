@@ -12,22 +12,19 @@ jobs:
       - name: Install TigerVNC Server via Homebrew
         run: |
           echo "=== Installing Third-Party TigerVNC Server ==="
-          # ஆப்பிள் செக்யூரிட்டியை பைபாஸ் பண்ண TigerVNC இன்ஸ்டால் செய்கிறோம்
-          brew install tigervnc-server
+          # சரியான ஹோம்ப்ரூ ஃபார்முலா பெயர் 'tiger-vnc'
+          brew install tiger-vnc
           
       - name: Configure and Start TigerVNC Server
         run: |
           echo "=== Setting Up Passwordless/Custom VNC ==="
-          # VNC-க்கான டைரக்ட் பாஸ்வேர்ட்டை பேக்ரவுண்ட்ல செட் பண்றோம்
           mkdir -p ~/.vnc
           echo "RdpMac123!" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           
-          # விர்ச்சுவல் டிஸ்ப்ளே 1024x768 ரெசல்யூஷன்ல ஓப்பன் பண்றோம் (Port: 5901)
-          # இது ஆப்பிள் செக்யூரிட்டி லாக்ஸை முழுமையாகத் தவிர்க்கும்
+          # விர்ச்சுவல் டிஸ்ப்ளே ஓப்பன் செய்கிறோம் (Port: 5901)
           vncserver :1 -geometry 1024x768 -depth 24 -rfbauth ~/.vnc/passwd &
           
-          # சர்வர் ஸ்டார்ட் ஆக 5 செகண்ட்ஸ் டைம் குடுப்போம்
           sleep 5
           echo "TigerVNC Server successfully started on Port 5901!"
 
