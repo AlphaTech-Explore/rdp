@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Ollama (CPU Optimized Engine)
         run: |
-          curl -fsSL https://ollama.com | sh
+          curl -fsSL https://ollama.com | sudo bash
 
       - name: Configure and Start Ollama Service
         run: |
