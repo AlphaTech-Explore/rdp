@@ -66,9 +66,9 @@ jobs:
           netsh int tcp set global autotuninglevel=normal
           netsh int tcp set global experimental=enabled
           
-          # Force network hardware offloading for low latency UDP/TCP streams
-          Enable-NetAdapterChecksumOffload -Name "*" -Force
-          Enable-NetAdapterLso -Name "*" -IPv4 -Force
+          # Force network hardware offloading for low latency UDP/TCP streams (-Confirm:$false fix)
+          Enable-NetAdapterChecksumOffload -Name "*" -Confirm:$false
+          Enable-NetAdapterLso -Name "*" -IPv4 -Confirm:$false
 
           # Allow unrestricted outbound/inbound traffic on the host firewall
           netsh advfirewall firewall add rule name="Allow Tailscale Routing" dir=in action=allow protocol=Any
