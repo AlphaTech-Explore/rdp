@@ -16,89 +16,74 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Python environment
+      - name: Setup Optimized Python Environment
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
 
-      - name: Install Python Dependencies
+      - name: Install AI Engine Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests
+          # Install core torch library with optimized CPU execution backends
+          # alongside the Hugging Face engine layer stack
+          pip install torch torchvision --index-url https://pytorch.org
+          pip install diffusers transformers accelerators sentencepiece
 
-      - name: Launch Ollama Service via Container Engine
-        run: |
-          echo "Starting isolated Ollama container environment..."
-          # Running via Docker avoids downloading raw scripts or handling tar archives manually.
-          # Maps port 11434 directly to localhost.
-          docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama-service ollama/ollama:latest
-          
-          echo "Waiting for local API loop stabilization..."
-          for i in {1..20}; do
-            if curl -s http://127.0.0 > /dev/null; then
-              echo "Ollama API daemon container successfully bound and online!"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Error: Containerized Ollama daemon failed to bind port within time constraints."
-          docker logs ollama-service
-          exit 1
-
-      - name: Pull Memory-Optimized Z-Image-Turbo Model Weights
-        run: |
-          echo "Instructing container engine to fetch distilled model layer arrays..."
-          # Running inside the running container context to cleanly cache model configurations
-          docker exec ollama-service ollama pull x/z-image-turbo:fp8
-
-      - name: Generate Image via Localhost Endpoint
+      - name: Run Core Image Generation Script
         run: |
           python - <<EOF
-          import requests
-          import json
-          import base64
+          import torch
+          from diffusers import DiffusionPipeline
           import time
 
-          endpoint = "http://127.0.0"
+          print("Initializing Z-Image-Turbo Engine onto CPU structures...")
+          model_id = "Alibaba-Tongyi/Z-Image-Turbo" # Exact Hugging Face Hub tracking ID
           
-          # Exact parameters mapping structural Ollama multimodal payload definitions
-          payload = {
-              "model": "x/z-image-turbo:fp8",
-              "prompt": "${{ github.event.inputs.prompt }}",
-              "stream": False,
-              "options": {
-                  "num_predict": 8
-              }
-          }
-
-          print("Submitting text prompt matrix to CPU local inference pool...")
           try:
-              response = requests.post(endpoint, json=payload, timeout=600)
-              if response.status_code != 200:
-                  print(f"Server response breakdown: {response.status_code} - {response.text}")
-                  sys.exit(1)
-                  
-              result = response.json()
+              # Initialize baseline pipeline structures targeting text-to-image variants
+              # while enforcing lightweight data constraints to comfortably fit inside 16GB RAM limits
+              pipe = DiffusionPipeline.from_pretrained(
+                  model_id, 
+                  torch_dtype=torch.float32, # Safe fallback for base CPU instruction matrices
+                  use_safetensors=True
+              )
               
-              # Safely parse key configurations based on Ollama image synthesis endpoints
-              img_b64 = result.get('image', result.get('response', ''))
+              # Enforce low-overhead execution policies
+              pipe.to("cpu")
               
-              if img_b64:
-                  # Sanitize potential formatting wrapper spaces
-                  clean_b64 = img_b64.strip()
-                  with open("cpu_output.png", "wb") as f:
-                      f.write(base64.b64decode(clean_b64))
-                  print("Success: Generated image array fully decoded to cpu_output.png")
-              else:
-                  print("Error: Target output signature array key missing from response schema.")
-                  print(f"Available payload properties received: {list(result.keys())}")
-                  exit(1)
+              # Enable sequential layer processing options to maximize thread garbage collection
+              if hasattr(pipe, "enable_sequential_cpu_offload"):
+                  pipe.enable_sequential_cpu_offload()
+
+              prompt_text = "${{ github.event.inputs.prompt }}"
+              print(f"Beginning distillation compilation matrix for prompt: {prompt_text}")
+              
+              start_time = time.time()
+              
+              # Execute the model utilizing its rapid-convergence 8-step process
+              image = pipe(
+                  prompt=prompt_text,
+                  num_inference_steps=8,
+                  guidance_scale=0.0,
+                  width=512,  # Optimized dimensions preventing RAM allocations from ballooning
+                  height=512
+              ).images[0]
+              
+              end_time = time.time()
+              print(f"Inference successfully compiled in {round(end_time - start_time, 2)} seconds.")
+              
+              # Output raw binary matrix directly to disk assets
+              image.save("cpu_output.png")
+              print("Success: Generated image array saved safely to disk storage profiles.")
+              
           except Exception as e:
-              print(f"Execution runtime crash caught: {str(e)}")
-              exit(1)
+              print(f"Critical execution error intercepted inside processing arrays: {str(e)}")
+              import sys
+              sys.exit(1)
           EOF
 
-      - name: Upload Output Asset
+      - name: Store Generated Asset File
         uses: actions/upload-artifact@v4
         with:
           name: cpu-generated-art
