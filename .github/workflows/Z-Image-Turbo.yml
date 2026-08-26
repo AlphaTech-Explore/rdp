@@ -9,7 +9,6 @@ on:
         default: 'A sleek modern cybernetic fox, vector art style, neon accents'
 
 env:
-  # Sets environment flag explicitly to keep modern runner execution warning-free
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
 
 jobs:
@@ -24,14 +23,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          # Removed the 'cache: pip' property to eliminate the requirements.txt search error completely
 
       - name: Install AI Engine Dependencies
         run: |
           python -m pip install --upgrade pip
-          # Installs core torch utilizing direct CPU instruction optimization maps
-          pip install torch torchvision --index-url https://pytorch.org
-          # Installs modern layout libraries required by the Sana structural architecture
+          # Using standard pip package index to let pip resolve CPU versions natively
+          pip install torch torchvision --extra-index-url https://pytorch.org
           pip install diffusers transformers accelerators sentencepiece
 
       - name: Run Core Image Generation Script
@@ -43,7 +40,6 @@ jobs:
           import time
 
           print("Initializing Z-Image-Turbo (Sana-based Engine) onto CPU structures...")
-          # Explicit target path for the lightweight architectural variants
           model_id = "Alibaba-Tongyi/Sana-1B-D16-fast" 
           
           try:
