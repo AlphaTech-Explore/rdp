@@ -9,22 +9,26 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Configure Screen Sharing & Set Core System Password
+      - name: Configure Screen Sharing with Standard Privileges
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
-          # Screen Sharing ஆன் செய்கிறோம்
+          
+          # Screen Sharing சர்வீஸை எனேபிள் செய்கிறோம்
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
           
-          echo "=== Setting System Password for runner User ==="
-          # மேக் ஓஎஸ்ஸில் இருக்கும் 'runner' யூசருக்கான சிஸ்டம் பாஸ்வேர்ட்டை 'RdpMac123!' என்று மாற்றுகிறோம்
-          # இதுதான் சிஸ்டம் லெவல் லாகினுக்கு மிக முக்கியம்
-          echo "RdpMac123!" | sudo dscl . -passwd /Users/runner
-          
-          # அனைத்து யூசர்களுக்கும் முழு ரிமோட் கண்ட்ரோல் அனுமதியைத் தருகிறோம்
+          # சிஸ்டம் பாஸ்வேர்ட்டை மாற்றாமல், ஆப்பிள் ஏஜென்ட் வழியாக VNC-க்கு மட்டும் பிரத்யேக பாஸ்வேர்ட் செட் செய்கிறோம்
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-            -configure -allowAccessFor -allUsers -privs -all \
-            -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
+            -configure -allowAccessFor -specifiedUsers
             
+          # 'runner' யூசருக்கு மட்டும் முழுமையான ரிமோட் கண்ட்ரோல் உரிமைகளை வழங்குகிறோம்
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -access -on -privs -all -users runner
+            
+          # VNC லாகின் பாஸ்வேர்ட்டை 'RdpMac123!' என்று பிக்ஸ் செய்கிறோம்
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
+            
+          # VNC லாகின் முறையை சிஸ்டத்தில் உறுதி செய்கிறோம்
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           
           # சர்வீஸை ரீஸ்டார்ட் செய்கிறோம்
@@ -74,7 +78,7 @@ jobs:
           echo "===================================="
           echo "Address : $TAILSCALE_IP"
           echo "Username: runner"
-          echo "Password: RdpMac123!"
+          echo "VNC Password: RdpMac123!"
           echo "====================================\n"
           
           while true; do
