@@ -1,4 +1,4 @@
-name: Z-Image-Turbo
+name: Native CPU Z-Image-Turbo Generation
 
 on:
   workflow_dispatch:
@@ -16,55 +16,52 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Ollama via Binary (Bypasses Script Blockers)
-        run: |
-          echo "Downloading official Ollama Linux binary directly..."
-          # Download the static compiled binary directly to avoid installer script redirections
-          curl -L https://ollama.com -o ollama-linux-amd64.tgz
-          
-          echo "Extracting binary to local user path..."
-          # Extract safely directly into /usr which works on standard and custom self-hosted runners
-          sudo tar -C /usr -xzf ollama-linux-amd64.tgz
-          
-          echo "Verifying installation version..."
-          ollama --version
+      - name: Setup Python environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Configure and Start Ollama Service
+      - name: Install Python Dependencies
         run: |
-          # Configure performance allocations
-          export OLLAMA_NUM_PARALLEL=1
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Launch Ollama Service via Container Engine
+        run: |
+          echo "Starting isolated Ollama container environment..."
+          # Running via Docker avoids downloading raw scripts or handling tar archives manually.
+          # Maps port 11434 directly to localhost.
+          docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama-service ollama/ollama:latest
           
-          # Initialize and launch the daemon engine in the background safely
-          sudo ollama serve > ollama.log 2>&1 &
-          
-          # Ensure loop handles validation check
-          echo "Waiting for Ollama service to respond on local interface..."
-          for i in {1..15}; do
+          echo "Waiting for local API loop stabilization..."
+          for i in {1..20}; do
             if curl -s http://127.0.0 > /dev/null; then
-              echo "Ollama engine service successfully initialized!"
+              echo "Ollama API daemon container successfully bound and online!"
               exit 0
             fi
             sleep 2
           done
-          echo "Error: Ollama service failed to bind to port 11434"
-          cat ollama.log
+          echo "Error: Containerized Ollama daemon failed to bind port within time constraints."
+          docker logs ollama-service
           exit 1
 
-      - name: Pull Memory-Optimized Z-Image-Turbo Model
+      - name: Pull Memory-Optimized Z-Image-Turbo Model Weights
         run: |
-          echo "Fetching memory efficient weights..."
-          # Pulling the quantized FP8 variant to prevent out of memory issues on CPU layers
-          sudo ollama pull x/z-image-turbo:fp8
+          echo "Instructing container engine to fetch distilled model layer arrays..."
+          # Running inside the running container context to cleanly cache model configurations
+          docker exec ollama-service ollama pull x/z-image-turbo:fp8
 
-      - name: Generate Image via Local Localhost API
+      - name: Generate Image via Localhost Endpoint
         run: |
           python - <<EOF
           import requests
           import json
           import base64
+          import time
 
           endpoint = "http://127.0.0"
           
+          # Exact parameters mapping structural Ollama multimodal payload definitions
           payload = {
               "model": "x/z-image-turbo:fp8",
               "prompt": "${{ github.event.inputs.prompt }}",
@@ -74,26 +71,30 @@ jobs:
               }
           }
 
-          print("Triggering local CPU image conversion processes...")
+          print("Submitting text prompt matrix to CPU local inference pool...")
           try:
-              response = requests.post(endpoint, json=payload, timeout=300)
+              response = requests.post(endpoint, json=payload, timeout=600)
               if response.status_code != 200:
-                  print(f"Server response failure: {response.status_code} - {response.text}")
-                  exit(1)
+                  print(f"Server response breakdown: {response.status_code} - {response.text}")
+                  sys.exit(1)
                   
               result = response.json()
+              
+              # Safely parse key configurations based on Ollama image synthesis endpoints
               img_b64 = result.get('image', result.get('response', ''))
               
               if img_b64:
+                  # Sanitize potential formatting wrapper spaces
+                  clean_b64 = img_b64.strip()
                   with open("cpu_output.png", "wb") as f:
-                      f.write(base64.b64decode(img_b64))
-                  print("Success: Generated image asset written out to cpu_output.png")
+                      f.write(base64.b64decode(clean_b64))
+                  print("Success: Generated image array fully decoded to cpu_output.png")
               else:
-                  print("Error: Target output key structure missing from response packet.")
-                  print(f"Keys available: {list(result.keys())}")
+                  print("Error: Target output signature array key missing from response schema.")
+                  print(f"Available payload properties received: {list(result.keys())}")
                   exit(1)
           except Exception as e:
-              print(f"Runtime execution failure intercepted: {str(e)}")
+              print(f"Execution runtime crash caught: {str(e)}")
               exit(1)
           EOF
 
