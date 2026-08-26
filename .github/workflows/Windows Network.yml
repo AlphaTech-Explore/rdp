@@ -59,40 +59,47 @@ jobs:
 
       - name: Enable IP Forwarding, NAT Routing & Optimize TCP
         run: |
-          # 1. IP Router-ஐ ரிஜிஸ்ட்ரில எனேபிள் பண்றோம்
+          # 1. IP Router-ஐ எனேபிள் பண்றோம்
           Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' -Name "IPEnableRouter" -Value 1 -Force
           
           # Remote Access Service (Routing) ஸ்டார்ட் பண்ணி NAT-ஐ ஆக்டிவேட் பண்றோம்
-          # இதுதான் VPN ஸ்பீடை அதிகப்படுத்த மிக முக்கியமானது
           Set-Service -Name RemoteAccess -StartupType Automatic
           Start-Service -Name RemoteAccess -ErrorAction SilentlyContinue
 
-          # 2. Syntax பிழை இல்லாத சரியான TCP Window Auto-Tuning கமாண்ட்
+          # 2. TCP Window Auto-Tuning
           netsh int tcp set global autotuninglevel=experimental
 
           # 3. ஃபயர்வால் அலோவ் ரூல்ஸ்
           netsh advfirewall firewall add rule name="Allow Tailscale Routing In" dir=in action=allow protocol=Any
           netsh advfirewall firewall add rule name="Allow Tailscale Routing Out" dir=out action=allow protocol=Any
 
-      - name: Install Tailscale
+      - name: Install Tailscale via Chocolatey
         run: |
-          $tsUrl = "https://tailscale.com"
-          $installerPath = "$env:TEMP\tailscale.msi"
+          # Chocolatey மூலமா டெயில்ஸ்கேலை 100% நம்பகத்தன்மையுடன் இன்ஸ்டால் செய்கிறோம்
+          choco install tailscale -y --no-progress
           
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
+          # என்விரான்மென்ட் பாத் அப்டேட் ஆக கொஞ்சம் நேரம் விண்டோஸ்க்கு டைம் குடுப்போம்
+          Start-Sleep -Seconds 15
 
       - name: Establish Tailscale Connection & Advertise Exit Node
         run: |
+          # இன்ஸ்டால் ஆன பாத் சரியாக இருக்கிறதா என்று செக் செய்யும் லூப்
+          $tsPath = "C:\Program Files\Tailscale\tailscale.exe"
+          if (-not (Test-Path $tsPath)) {
+              # ஒருவேளை பாத் மாறினால் மாற்று பாத் செக் செய்கிறது
+              $tsPath = "C:\Program Data\chocolatey\bin\tailscale.exe"
+          }
+          
+          Write-Host "Using Tailscale Path: $tsPath"
+
           # Up Tailscale as an explicit Exit Node with custom unique hostname
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID --advertise-exit-node
+          & $tsPath up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID --advertise-exit-node
           
           # Wait for Tailscale to assign an IP
           $tsIP = $null
           $retries = 0
           while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              $tsIP = & $tsPath ip -4
               Start-Sleep -Seconds 5
               $retries++
           }
@@ -105,6 +112,7 @@ jobs:
       
       - name: Verify RDP Accessibility
         run: |
+          $tsPath = "C:\Program Files\Tailscale\tailscale.exe"
           Write-Host "Tailscale IP: $env:TAILSCALE_IP"
           
           # Test connectivity using Test-NetConnection against the Tailscale IP on port 3389
