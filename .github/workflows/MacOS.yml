@@ -9,20 +9,22 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Configure Screen Sharing & ARD Privileges
+      - name: Configure Screen Sharing & Set Core System Password
         run: |
           echo "=== Configuring Screen Sharing Settings ==="
-          
-          # Screen Sharing மற்றும் Remote Management சர்வீஸ்களை எனேபிள் செய்கிறோம்
+          # Screen Sharing ஆன் செய்கிறோம்
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
           
-          # தற்போதைய 'runner' யூசருக்கு முழுமையான ரிமோட் கண்ட்ரோல் உரிமைகளை (ARD Privileges) வழங்குகிறோம்
-          # இதுதான் ஆதெண்டிகேஷன் எர்ரரை முழுமையாக சரிசெய்யும்
+          echo "=== Setting System Password for runner User ==="
+          # மேக் ஓஎஸ்ஸில் இருக்கும் 'runner' யூசருக்கான சிஸ்டம் பாஸ்வேர்ட்டை 'RdpMac123!' என்று மாற்றுகிறோம்
+          # இதுதான் சிஸ்டம் லெவல் லாகினுக்கு மிக முக்கியம்
+          echo "RdpMac123!" | sudo dscl . -passwd /Users/runner
+          
+          # அனைத்து யூசர்களுக்கும் முழு ரிமோட் கண்ட்ரோல் அனுமதியைத் தருகிறோம்
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -allowAccessFor -allUsers -privs -all \
             -clientopts -setvncpasswd -vncpasswd "RdpMac123!"
             
-          # VNC லாகின் முறையை முழுமையாக எனேபிள் செய்கிறோம்
           sudo defaults write /Library/Preferences/com.apple.RemoteManagement VNCEnabled -bool YES
           
           # சர்வீஸை ரீஸ்டார்ட் செய்கிறோம்
@@ -72,7 +74,7 @@ jobs:
           echo "===================================="
           echo "Address : $TAILSCALE_IP"
           echo "Username: runner"
-          echo "VNC Password: RdpMac123!"
+          echo "Password: RdpMac123!"
           echo "====================================\n"
           
           while true; do
