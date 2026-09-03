@@ -1,0 +1,30 @@
+name: Spin Up Distributed VM Cluster
+on: [workflow_dispatch] # Allows you to start it manually
+
+jobs:
+  nodes:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # This spins up 3 VMs at the exact same time
+        node-id: [1, 2, 3] 
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Connects each individual VM to your private Tailscale network
+    - name: Connect to Tailscale Mesh Network
+      uses: tailscale/github-action@v2
+      with:
+        authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+    # Identify other nodes and run a distributed task
+    - name: Run Cluster Node Payload
+      run: |
+        echo "I am Node number ${{ matrix.node-id }}"
+        echo "My private Tailscale IP is:"
+        tailscale ip -4
+        
+        # Insert your distributed code execution here
+        # Example: python3 distributed_script.py --node-id ${{ matrix.node-id }}
