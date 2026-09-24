@@ -1,0 +1,33 @@
+name: Deploy and Validate BIND9 DNS Config
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  validate-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install BIND9 Utilities (for zone syntax checking)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bind9utils
+
+      - name: Validate DNS Zone File Syntax
+        run: |
+          # Example checking a zone file stored in your repo at zones/db.example.com
+          named-checkzone example.com zones/db.example.com
+
+      - name: Deploy to Remote Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo cp /path/to/repo/zones/db.example.com /etc/bind/zones/
+            sudo systemctl restart bind9
+            sudo systemctl status bind9
