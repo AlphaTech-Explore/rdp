@@ -57,13 +57,11 @@ jobs:
               exit 1
           }
 
-      # ---------------- NEW CHROME CACHE STEP ----------------
       - name: Cache Chrome Profile Data
         uses: actions/cache@v4
         with:
           path: C:\Users\runneradmin\AppData\Local\Google\Chrome\User Data
           key: \${{ runner.os }}-chrome-profile-v1
-      # --------------------------------------------------------
 
       - name: Install Tailscale
         run: |
@@ -110,7 +108,7 @@ jobs:
           Write-Host "`n=== RDP ACCESS ==="
           Write-Host "Address: $env:TAILSCALE_IP"
           Write-Host "Username: RDP"
-          Write-Host "Password: $(echo $env:RDP_CREDS)"
+          Write-Host "Password: $($env:RDP_CREDS)"
           Write-Host "==================`n"
           
           # Keep runner active indefinitely (or until manually cancelled)
